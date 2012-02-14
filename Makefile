@@ -45,7 +45,7 @@ CU_DEPS		:=
 
 # C/C++ source files (compiled with gcc / c++)
 CCFILES		:= \
-	galena_util.cpp \
+	util.cpp \
 	main.cpp \
 	individual.cpp \
 
