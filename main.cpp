@@ -52,6 +52,7 @@ extern "C" bool initialize_cuda(int argc, char **argv);
 const int BORDER = 10;
 int                            g_window_width;
 int                            g_window_height;
+int                            g_window_id;
 png::image< png::rgb_pixel > * g_goal_image;
 GLubyte *                      g_goal_image_data;
 GLuint                         g_goal_image_pbo;
@@ -67,24 +68,17 @@ int                            g_random_seed;
 float *                        g_fitness_array;
 int *                          g_fitness_index_array;
 bool                           g_keep_breeding = true;
+int                            g_auto_quit;
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 int
 main(int argc, char **argv)
 {
     if(initialize(argc, argv)) {
-        main_loop();
+        glutMainLoop();
         return EXIT_SUCCESS;
     }
     return EXIT_FAILURE;
-}
-
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-void
-main_loop()
-{
-    glutMainLoop();
-    return;
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -131,8 +125,8 @@ initialize_goal_image(int argc, char **argv)
 bool
 initialize_population(int argc, char **argv)
 {
-    if(argc < 8) {
-        fprintf(stderr, "ERROR: need population count, max_generations, num_genes, mutation_rate, fitness_goal, random_seed. argc=%d\n",argc);
+    if(argc < 9) {
+        fprintf(stderr, "ERROR: need population count, max_generations, num_genes, mutation_rate, fitness_goal, random_seed auto_quit. argc=%d\n",argc);
         fflush(stderr);
         return false;
     }
@@ -143,11 +137,14 @@ initialize_population(int argc, char **argv)
     g_mutation_rate    = atof(argv[5]);
     g_fitness_goal     = atof(argv[6]);
     g_random_seed      = atoi(argv[7]);
+    g_auto_quit        = atoi(argv[8]);
     printf("population count: %d\n", g_population_count);
+    printf("max_generations:  %f\n", g_max_generations);
     printf("num_genes:        %d\n", g_num_genes);
     printf("mutation_rate:    %f\n", g_mutation_rate);
     printf("fitness_goal:     %f\n", g_fitness_goal);
     printf("random seed:      %d\n", g_random_seed);
+    printf("auto quit:        %d\n", g_auto_quit);
     fflush(stdout);
     srandom(g_random_seed);
     g_images = (Individual **)malloc(sizeof(Individual *)*g_population_count);
@@ -172,7 +169,7 @@ initialize_glut(int argc, char **argv)
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
     glutInitWindowSize(g_window_width,g_window_height);
-    glutCreateWindow("Galena");
+    g_window_id = glutCreateWindow("Galena");
 
     if(!initialize_gl()) {
         return false;
@@ -286,6 +283,10 @@ display_population_images()
 void 
 display()
 {
+    if(!g_keep_breeding && g_auto_quit) {
+        glutDestroyWindow(g_window_id);
+        exit(0);
+    }
     cudaEvent_t start, display, evaluate, breed, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&display);
@@ -308,6 +309,8 @@ display()
         } else {
             g_keep_breeding = false;
             glClearColor(0.5,0.5,0.5,1.0);
+            printf("\n");
+            printf("best fitness = %.0f\n",best_fitness);
             dump_most_fit();
         }
         cudaEventRecord(breed,0); cudaEventSynchronize(breed);
@@ -320,7 +323,10 @@ display()
     cudaEventElapsedTime(&t2, display, evaluate);
     cudaEventElapsedTime(&t3, evaluate, breed);
     cudaEventElapsedTime(&t4, breed, stop);
-    printf("%f,%f,%f,%f\n",t1,t2,t3,t4);
+    if(g_keep_breeding) {
+        printf("%f,%f,%f,%f\n",t1,t2,t3,t4);
+    }
+    fflush(stdout);
 }
 
 //#define MIN(a,b) ((a<b)?(a):(b))
@@ -365,8 +371,8 @@ breed_new_generation()
         if(i == g_fitness_index_array[0])
             continue;
         g_images[i]->breed(
-            g_images[g_fitness_index_array[0]],
-            g_images[g_fitness_index_array[i]]
+            g_images[g_fitness_index_array[i]], // mommy is original.  
+            g_images[g_fitness_index_array[0]]  // daddy is best fit
             );
     }
 }
