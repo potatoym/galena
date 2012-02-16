@@ -6,6 +6,9 @@ Inspired by http://rogeralsing.com/2008/12/07/genetic-programming-evolution-of-m
 
 Ideally, CUDA+OpenGL will make this an interesting bit of code.  Started a long time ago, but never finished.  Trying again...we'll see.
 
+======================================================================
+Notes:
+
 goal image:
   png -> png++ class -> unsigned int array -> pbo -> glDrawPixels -> framebuffer
 
